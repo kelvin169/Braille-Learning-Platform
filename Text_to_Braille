@@ -1,0 +1,99 @@
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+
+// Wi-Fi credentials
+const char* ssid = "Mwaniki_kev";
+const char* password = "wallstreet1936";
+
+// HTTP server on port 80
+ESP8266WebServer server(80);
+
+// Push button pins (6 buttons for Braille matrix)
+const int buttonPins[6] = {D1, D2, D3, D4, D5, D6};
+
+// Braille character mapping (letters, numbers, and common symbols)
+const char* brailleTable[] = {
+  " ", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j",
+  "k", "l", "m", "n", "o", "p", "q", "r", "s", "t",
+  "u", "v", "w", "x", "y", "z", ".", ",", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"
+};
+
+String sentence = "";  // Stores the formed sentence
+int charCount = 0;     // Counter for characters in the sentence
+
+void setup() {
+  // Initialize Serial Monitor
+  Serial.begin(115200);
+  Serial.println("\nInitializing...");
+
+  // Initialize buttons as inputs with pull-up resistors
+  for (int i = 0; i < 6; i++) {
+    pinMode(buttonPins[i], INPUT_PULLUP);
+  }
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to Wi-Fi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  
+  // Display IP address once connected
+  Serial.println("\n\nConnected to Wi-Fi!");
+  Serial.print("SSID: ");
+  Serial.println(ssid);
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+
+  // Define the HTTP GET handler for displaying the sentence
+  server.on("/", HTTP_GET, handleRoot);
+
+  // Start HTTP server
+  server.begin();
+}
+
+void loop() {
+  // Handle HTTP requests
+  server.handleClient();
+
+  // Read button states and construct the Braille pattern
+  int braillePattern = 0;
+  for (int i = 0; i < 6; i++) {
+    if (digitalRead(buttonPins[i]) == LOW) {
+      braillePattern |= (1 << i);  // Update the Braille pattern based on button press
+    }
+  }
+
+  // If a valid Braille character is detected, append it to the sentence
+  if (braillePattern < sizeof(brailleTable) / sizeof(brailleTable[0])) {
+    String brailleChar = brailleTable[braillePattern];
+    if (brailleChar != " ") {
+      sentence += brailleChar;  // Add the character to the sentence
+      charCount++;              // Increment the character count
+    }
+    Serial.println("Braille Input: " + brailleChar);
+    delay(500);  // Debounce delay
+  }
+}
+
+void handleRoot() {
+  // Send the HTML page with the formed sentence and character count
+  String html = "<html><head><meta http-equiv='refresh' content='1'></head><body>";
+  html += "<h1>Braille Learning Platform</h1>";
+  html += "<p><strong>Sentence Formed:</strong></p>";
+  html += "<input type='text' value='" + sentence + "' readonly style='width:100%; font-size:24px; padding:10px;' />";
+  html += "<p><strong>Character Count:</strong> " + String(charCount) + "</p>"; // Added counter
+  html += "<p><strong>Buttons Pressed:</strong></p>";
+
+  // Display the button states
+  html += "<ul>";
+  for (int i = 0; i < 6; i++) {
+    html += "<li>Button " + String(i + 1) + ": " + (digitalRead(buttonPins[i]) == LOW ? "Pressed" : "Released") + "</li>";
+  }
+  html += "</ul>";
+
+  html += "</body></html>";
+
+  server.send(200, "text/html", html);  // Send the HTML response
+}
