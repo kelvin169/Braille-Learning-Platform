@@ -25,3 +25,5 @@ Node.js (Backend): Handles API requests, WebSockets, and database connections.
 ESP8266 Firmware: Arduino-compatible code to control the hardware.
 Database: Stores user accounts, learning progress, and Braille input/output.
 Additional improvements to be made to the servo motors 
+
+New functions to be implemented including AI based features 
